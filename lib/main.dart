@@ -1,5 +1,8 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:todo/models/item.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   runApp(const App());
@@ -26,9 +29,9 @@ class HomePage extends StatefulWidget {
 
   HomePage({Key? key}) : super(key: key) {
     items = [];
-    items.add(Item(title: "Banana", done: false));
-    items.add(Item(title: "Abacate", done: true));
-    items.add(Item(title: "Laranja", done: false));
+    // items.add(Item(title: "Banana", done: false));
+    // items.add(Item(title: "Abacate", done: true));
+    // items.add(Item(title: "Laranja", done: false));
   }
 
   @override
@@ -49,7 +52,38 @@ class _HomePageState extends State<HomePage> {
         ),
       );
       newTaskCtrl.clear();
+      save();
     });
+  }
+
+  void remove(int index) {
+    setState(() {
+      widget.items.removeAt(index);
+      save();
+    });
+  }
+
+  Future load() async {
+    var prefs = await SharedPreferences.getInstance();
+    var data = prefs.getString('data');
+
+    if (data != null) {
+      Iterable decoded = jsonDecode(data);
+      List<Item> result = decoded.map((x) => Item.fromJson(x)).toList();
+
+      setState(() {
+        widget.items = result;
+      });
+    }
+  }
+
+  save() async {
+    var prefs = await SharedPreferences.getInstance();
+    await prefs.setString('data', jsonEncode(widget.items));
+  }
+
+  _HomePageState() {
+    load();
   }
 
   @override
@@ -71,15 +105,24 @@ class _HomePageState extends State<HomePage> {
         itemCount: widget.items.length,
         itemBuilder: (BuildContext context, int index) {
           final item = widget.items[index];
-          return CheckboxListTile(
-            title: Text(item.title ?? ""),
+          return Dismissible(
             key: Key(item.title ?? ""),
-            value: item.done,
-            onChanged: (value) {
-              setState(() {
-                item.done = value;
-              });
+            background: Container(
+              color: Colors.red,
+            ),
+            onDismissed: (direction) {
+              remove(index);
             },
+            child: CheckboxListTile(
+              title: Text(item.title ?? ""),
+              value: item.done,
+              onChanged: (value) {
+                setState(() {
+                  item.done = value;
+                  save();
+                });
+              },
+            ),
           );
         },
       ),
